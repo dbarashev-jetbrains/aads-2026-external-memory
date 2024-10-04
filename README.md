@@ -8,7 +8,7 @@ This repository contains code for the multiway merge sort assignment  from Advan
 2. Parameterize your class with the `storageAccessManager: StorageAccessManager` and `cache: PageCache` objects and implement the real multiway merge sort. Feel free to use `SlowSortImpl` class as a reference.
 
 ## Testing
-* You can run unit tests with `./gradlew test` command. The tests are pretty basic and do not cover all the aspects of 
+* You can run unit tests with `./gradlew test -Dsort.impl=real` command. The tests are pretty basic and do not cover all the aspects of 
 the sort procedure, so passing unit tests does not necessarily mean that the implementation is correct. 
 However, if they pass, it is a very good start.
 
