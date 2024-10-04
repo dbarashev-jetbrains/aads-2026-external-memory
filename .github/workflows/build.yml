@@ -21,7 +21,7 @@ jobs:
           java-package: jdk
           cache: 'gradle'
       - name: Build project
-        run: ./gradlew --no-daemon build
+        run: ./gradlew --no-daemon build -Dsort.impl=real
       - name: Run Join Benchmark
         run: ./run-sort-merge-join-benchmark.sh
         
