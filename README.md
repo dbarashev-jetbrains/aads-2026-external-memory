@@ -19,3 +19,7 @@ However, if they pass, it is a very good start.
 ```
 
 * You can compare your implementation and the default "slow" implementation using `run-sort-merge-join-benchmark.sh` shell script. If your implementation is efficient, it will run approximately 100 times faster than the slow one.
+
+## GitHub action
+
+There is a GitHub action that runs the unit tests and the benchmark. It will check your pull requests and will turn the green light if your implementation is likely to be correct.
