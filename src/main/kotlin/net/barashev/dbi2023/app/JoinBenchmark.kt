@@ -42,7 +42,7 @@ class JoinBenchmark: CliktCommand() {
         val (cache, accessManager) = initializeFactories(storage = storage, cacheSize = cacheSize,
             cacheImpl = cacheImpl,
             hashImpl = if (realHash) "real" else "fake",
-            sortImpl = if (realSort) "real" else "fake"
+            sortImpl = System.getProperty("sort.impl") ?: if (realSort) "real" else "fake"
         )
         DataGenerator(accessManager, cache, dataScale, fixedRowCount = true, disableStatistics = true).use{}
         Operations.innerJoinFactory(accessManager, cache, joinAlgorithm).fold(

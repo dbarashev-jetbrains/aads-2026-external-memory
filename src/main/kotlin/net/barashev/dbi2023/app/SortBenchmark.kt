@@ -37,7 +37,7 @@ class SortBenchmark: CliktCommand() {
         val storage = createHardDriveEmulatorStorage()
         val (cache, accessManager) = initializeFactories(storage = storage, cacheSize = cacheSize,
             cacheImpl = cacheImpl,
-            sortImpl = if (realSort) "real" else "fake"
+            sortImpl = System.getProperty("sort.impl") ?: if (realSort) "real" else "fake"
         )
         DataGenerator(accessManager, cache, dataScale, fixedRowCount = true, disableStatistics = true).use{}
 

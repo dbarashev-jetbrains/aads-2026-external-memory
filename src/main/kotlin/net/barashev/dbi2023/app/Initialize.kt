@@ -21,7 +21,6 @@ package net.barashev.dbi2023.app
 import net.barashev.dbi2023.*
 import net.barashev.dbi2023.fake.FakeHashTableBuilder
 import net.barashev.dbi2023.fake.FakeIndexManager
-import net.barashev.dbi2023.fake.FakeMergeSort
 import net.barashev.dbi2023.fake.FakeNestedLoops
 import org.slf4j.LoggerFactory
 import kotlin.Result.Companion.failure
@@ -54,6 +53,7 @@ fun initializeFactories(
     Operations.sortFactory = { strg, cache ->
         when (sortImpl) {
             "real" -> TODO("Create your merge sort instance here")
+            "topk" -> TopKSortImpl(strg, cache)
             else -> SlowSortImpl(strg, cache)
         }
     }
