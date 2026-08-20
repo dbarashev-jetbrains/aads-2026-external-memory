@@ -15,7 +15,7 @@ However, if they pass, it is a very good start.
 * You can run a benchmark that joins two tables using your multiway merge sort implementation:
 
 ```
-./gradlew run --args='join-benchmark --cache-impl clock --cache-size 70 --data-scale 10 --join-algorithm merge --real-sort'
+./gradlew run --args='sort-benchmark --cache-impl clock --cache-size 8 --data-scale 8 --sort-algorithm real'
 ```
 
 * You can compare your implementation and the default "slow" implementation using `run-sort-merge-join-benchmark.sh` shell script. If your implementation is efficient, it will run approximately 100 times faster than the slow one.

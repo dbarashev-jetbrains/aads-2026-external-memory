@@ -35,14 +35,14 @@ class JoinBenchmark: CliktCommand() {
     val cacheSize: Int by option(help="Page cache size [default=100]").int().default(System.getProperty("cache.size", "100").toInt())
     val cacheImpl: String by option(help="Cache implementation [default=aging]").default(System.getProperty("cache.impl", "aging"));
     val realHash by option(help="Use the real hash implementation [default=true]").flag(default = true)
-    val realSort by option(help="Use the real merge-sort implementation [default=false]").flag(default = false)
+    val sortAlgorithm by option(help="Sort algorithm to use").default("topk")
     val joinAlgorithm by option(help="Join algorithm to use [default=NESTED_LOOPS]").enum<JoinAlgorithm>().default(JoinAlgorithm.NESTED_LOOPS)
     override fun run() = try {
         val storage = createHardDriveEmulatorStorage()
         val (cache, accessManager) = initializeFactories(storage = storage, cacheSize = cacheSize,
             cacheImpl = cacheImpl,
             hashImpl = if (realHash) "real" else "fake",
-            sortImpl = System.getProperty("sort.impl") ?: if (realSort) "real" else "fake"
+            sortImpl = System.getProperty("sort.impl") ?: sortAlgorithm
         )
         DataGenerator(accessManager, cache, dataScale, fixedRowCount = true, disableStatistics = true).use{}
         Operations.innerJoinFactory(accessManager, cache, joinAlgorithm).fold(
@@ -102,6 +102,7 @@ class JoinBenchmark: CliktCommand() {
             }
         )
     } catch (ex: Exception) {
+        ex.printStackTrace()
         System.exit(1)
     }
 }

@@ -31,13 +31,13 @@ class SortBenchmark: CliktCommand() {
     val dataScale: Int by option(help="Test data scale [default=1]").int().default(1)
     val cacheSize: Int by option(help="Page cache size [default=100]").int().default(System.getProperty("cache.size", "100").toInt())
     val cacheImpl: String by option(help="Cache implementation [default=fifo]").default(System.getProperty("cache.impl", "fifo"));
-    val realSort by option(help="Use the real multiway merge sort implementation [default=false]").flag()
+    val sortAlgorithm by option(help="Use the real multiway merge sort implementation").default("topk")
 
     override fun run() {
         val storage = createHardDriveEmulatorStorage()
         val (cache, accessManager) = initializeFactories(storage = storage, cacheSize = cacheSize,
             cacheImpl = cacheImpl,
-            sortImpl = System.getProperty("sort.impl") ?: if (realSort) "real" else "fake"
+            sortImpl = System.getProperty("sort.impl") ?: sortAlgorithm
         )
         DataGenerator(accessManager, cache, dataScale, fixedRowCount = true, disableStatistics = true).use{}
 
@@ -57,7 +57,6 @@ class SortBenchmark: CliktCommand() {
             ticketRecord(it).value3
         }
         val cost1 = storage.totalAccessCost
-        println("Sorting done. Access cost=${cost1-cost0}")
         println(cache.stats)
         val realSortMin = accessManager.createFullScan(sortedTicketsTable).records(::ticketRecord).first()
 
@@ -70,5 +69,6 @@ class SortBenchmark: CliktCommand() {
         if (realSortMin.value3 != fakeSortMin.value3) {
             error("Wow, they found different min ticket prices!!!")
         }
+        println("SORT COST: ${cost1-cost0}")
     }
 }
