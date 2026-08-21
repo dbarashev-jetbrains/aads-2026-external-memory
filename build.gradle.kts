@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Dmitry Barashev, JetBrains s.r.o.
+ * Copyright 2026 Dmitry Barashev, JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.0.20"
+    kotlin("jvm") version "2.4.10"
     java
     application
 }
 
-group = "net.barashev.dbi2022"
+group = "org.jetbrains.edu"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -30,10 +30,10 @@ repositories {
 }
 
 dependencies {
-    implementation("ch.qos.logback:logback-classic:1.5.8")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.8.1")
+    implementation("ch.qos.logback:logback-classic:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.11.0")
     implementation("net.datafaker:datafaker:2.3.0")
-    implementation("com.github.ajalt.clikt:clikt:4.3.0")
+    implementation("com.github.ajalt.clikt:clikt:4.4.0")
     testImplementation(kotlin("test"))
 }
 
@@ -46,6 +46,6 @@ tasks.test {
 
 
 application {
-    mainClass.set("net.barashev.dbi2023.app.MainKt")
+    mainClass.set("org.jetbrains.edu.dbi2026.app.MainKt")
     applicationDefaultJvmArgs = System.getProperties().filterKeys { it in systemProps }.map { "-D${it.key}=${it.value}"}
 }

@@ -1,0 +1,229 @@
+/*
+ * Copyright 2025 Dmitry Barashev, JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ *
+ */
+
+package org.jetbrains.edu.dbi2026
+
+import org.jetbrains.edu.dbi2026.catalog.TablePageCatalogImpl
+import org.jetbrains.edu.dbi2026.catalog.TablePageRecords
+import java.lang.IllegalArgumentException
+import java.util.function.Function
+
+private const val ATTRIBUTE_SYSTABLE_OID = 1
+
+const val NAME_SYSTABLE_OID = 0
+
+
+internal interface TablePageDirectory {
+    fun pages(tableOid: Oid): Iterable<OidPageidRecord>
+    fun add(tableOid: Oid, pageCount: Int = 1): PageId
+    fun addTable(record: OidNameRecord)
+    fun delete(tableOid: Oid)
+
+    fun tableNameOidList(): List<OidNameRecord>
+}
+
+/**
+ * In-memory cache of table name to table OID mapping, which
+ * loads data from the system table NAME_SYSTABLE.
+ */
+internal class TableOidMapping(
+    private val pageCache: PageCache,
+    private val tablePageDirectory: TablePageDirectory) {
+    private val cachedMapping = mutableMapOf<String, Oid?>()
+
+    private fun scanRecords(): Iterable<OidNameRecord> = tablePageDirectory.tableNameOidList()
+
+    fun get(tableName: String): Oid? {
+        val oid = cachedMapping.getOrPut(tableName) {
+            scanRecords().firstOrNull {
+                it.value2 == tableName && !it.value3
+            }?.value1 ?: -1
+        }
+        return if (oid == -1) null else oid
+    }
+
+    internal fun isValid(oid: Oid): Boolean =
+        scanRecords().firstOrNull {
+            it.value1 == oid && !it.value3
+        } != null
+
+    fun create(tableName: String): Oid {
+        val nextOid = nextTableOid()
+        val record = OidNameRecord(intField(nextOid), stringField(tableName), booleanField(false))
+        tablePageDirectory.addTable(record)
+        return nextOid.also {
+            cachedMapping[tableName] = it
+        }
+    }
+
+    private fun nextTableOid(): Oid {
+        var maxOid = NAME_SYSTABLE_OID
+        scanRecords().forEach {
+            // We ignore "isDeleted" flag here to be sure that table oid are always unique
+            maxOid = maxOf(maxOid, it.value1)
+        }
+        return maxOid + 1
+    }
+
+    fun delete(tableName: String) {
+        FullScanImpl(pageCache, NAME_SYSTABLE_OID, {tablePageDirectory.pages(NAME_SYSTABLE_OID).iterator()}).pages().forEach {page ->
+            page.allRecords().entries.mapNotNull {
+                if (it.value.isOk) {
+                    it.key to OidNameRecord(intField(), stringField(), booleanField()).fromBytes(it.value.bytes)
+                } else null
+            }.filter {
+                it.second.component2() == tableName
+            }.forEach {
+                page.putRecord(OidNameRecord(intField(it.second.value1), stringField(it.second.value2), booleanField(true)).asBytes(), it.first)
+            }
+        }
+        cachedMapping.remove(tableName)
+    }
+}
+
+class IndexScanImpl<T, K: Comparable<K>>(private val pageCache: PageCache,
+                                         private val index: Index<K>,
+                                         private val recordBytesParser: Function<ByteArray, T>
+): IndexScan<T, K> {
+    override fun byEquality(key: K, keyParser: Function<ByteArray, K>): Iterable<T>  =
+        index.lookup(key).toSet().flatMap { pageId ->
+            pageCache.get(pageId).allRecords().values.filter {
+                it.isOk && key == keyParser.apply(it.bytes)
+            }.map { it.bytes }
+        }.map { recordBytesParser.apply(it) }.toList()
+}
+
+
+class SimpleStorageAccessManager(private val pageCache: PageCache, directoryStorage: Storage): StorageAccessManager {
+    private val directoryCache = SimplePageCacheImpl(directoryStorage, 50)
+    //private val tablePageDirectory = SimplePageDirectoryImpl(pageCache, directoryCache)
+    private val tablePageDirectory = TablePageCatalogImpl(directoryCache)
+    private val tableOidMapping = TableOidMapping(directoryCache, tablePageDirectory)
+
+    override fun createFullScan(tableName: String): FullScan =
+        tableOidMapping.get(tableName)
+            ?.let { tableOid ->
+                FullScanImpl(pageCache, tableOid) { TablePageRecords(directoryCache, tableOid).iterator() }
+            }
+            ?: throw AccessMethodException("Relation $tableName not found")
+
+    override fun createTable(tableName: String): Oid {
+        if (tableOidMapping.get(tableName) != null) {
+            throw IllegalArgumentException("Table $tableName already exists")
+        }
+        return tableOidMapping.create(tableName)
+    }
+
+    override fun addPage(tableOid: Oid, pageCount: Int): PageId =
+        if (tableOidMapping.isValid(tableOid)) {
+            tablePageDirectory.add(tableOid, pageCount)
+        } else {
+            throw AccessMethodException("Table with oid $tableOid not found")
+        }
+
+    override fun pageCount(tableName: String): Int =
+        tableOidMapping.get(tableName)?.let {
+            tablePageDirectory.pages(it).count()
+        } ?: throw AccessMethodException("Relation $tableName not found")
+
+    override fun tablePages(tableName: String): List<PageId> =
+        tableOidMapping.get(tableName)?.let {
+            tablePageDirectory.pages(it).map { record -> record.value2 }
+        } ?: throw AccessMethodException("Relation $tableName not found")
+
+    override fun tableExists(tableName: String): Boolean = tableOidMapping.get(tableName) != null
+
+    override fun deleteTable(tableName: String) {
+        // This implementation just removes table records from the table page directory and from the name=>oid
+        // mapping. It won't clear or garbage-collect table pages.
+        tableOidMapping.get(tableName)?.let {
+            tablePageDirectory.delete(it)
+            tableOidMapping.delete(tableName)
+        }
+    }
+
+    override fun <T, K: Comparable<K>, S: AttributeType<K>> createIndexScan(
+        tableName: String,
+        attributeName: String,
+        attributeType: S,
+        keyParser: Function<ByteArray, K>,
+        recordBytesParser: Function<ByteArray, T>
+    ): IndexScan<T, K>? =
+        when {
+            tableExists(tableName.indexTableName(attributeName, IndexMethod.BTREE)) ->
+                Indexes.indexFactory(this, pageCache).open(
+                    tableName,
+                    tableName.indexTableName(attributeName, IndexMethod.BTREE),
+                    IndexMethod.BTREE,
+                    false,
+                    attributeType,
+                    keyParser
+                )
+            tableExists(tableName.indexTableName(attributeName, IndexMethod.HASH)) ->
+                Indexes.indexFactory(this, pageCache).open(
+                    tableName,
+                    tableName.indexTableName(attributeName, IndexMethod.HASH),
+                    IndexMethod.HASH,
+                    false,
+                    attributeType,
+                    keyParser
+                )
+            else -> null
+        }?.let {index ->
+            IndexScanImpl(pageCache, index, recordBytesParser)
+        }
+
+    override fun <K: Comparable<K>, S: AttributeType<K>> createIndex(
+        tableName: String, attributeName: String, attributeType: S, keyParser: Function<ByteArray, K>) {
+        doCreateIndex(
+            tableName, IndexMethod.BTREE, attributeName, attributeType, keyParser
+        ).fold(
+            onSuccess = { Result.success(it) },
+            onFailure = {
+                doCreateIndex(tableName, IndexMethod.HASH, attributeName, attributeType, keyParser)
+            }
+        ).onFailure {ex ->
+            throw AccessMethodException("No index implementation found or index build failure", ex)
+        }
+    }
+
+    private fun <K: Comparable<K>, S: AttributeType<K>> doCreateIndex(
+        tableName: String, indexMethod: IndexMethod, attributeName: String, attributeType: S, keyParser: Function<ByteArray, K>): Result<Index<K>> {
+        if (!tableExists(tableName)) {
+            throw AccessMethodException("Relation $tableName not found")
+        }
+        val indexTable = tableName.indexTableName(attributeName, indexMethod)
+        if (tableExists(indexTable)) {
+            throw AccessMethodException("Index $indexTable already exists")
+        }
+        return try {
+            Result.success(Indexes.indexFactory(this, pageCache).build(tableName, indexTable, indexMethod, false, attributeType, keyParser))
+        } catch (ex: Exception) {
+            Result.failure(ex)
+        }
+    }
+
+    override fun indexExists(tableName: String, attributeName: String): Boolean =
+        tableExists(tableName.indexTableName(attributeName, IndexMethod.BTREE)) || tableExists(tableName.indexTableName(attributeName, IndexMethod.HASH))
+
+    private fun String.indexTableName(attributeName: String, method: IndexMethod) = "${this}_idx_${attributeName}_${method.name.lowercase()}"
+    override fun close() {
+        directoryCache.flush()
+    }
+
+}
