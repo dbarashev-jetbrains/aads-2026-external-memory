@@ -36,12 +36,24 @@ Second part of the assignment is to study the performance dynamics of your imple
 You can run the benchmark with different parameters and observe how the access cost changes. 
 You can also compare your implementation with the default "slow" implementation and observe how the access cost changes.
 
-The task is to create a graph that shows the performance dynamics of two implementations, shows the point where multiway 
-merge sort becomes more efficient than the default "slow" implementation, and write an analysis and explanation of the results.
+The task is to create a graph that shows the performance dynamics of two implementations, show the point where multiway 
+merge sort becomes more efficient than the default "slow" implementation, write an analysis and explanation of the results.
 
 
 ## Notes for TAs
 
-AI will easily create an efficient multiway merge sort implementation. However, it will not overperform the default "slow" implementation with 
+The default "slow" Top-K implementation scans through the data set and builds an in-memory Top-K structure. 
+The size of the priority queue is proportional to the cache size. Once the entire input is scanned, it flushes the contents of the priority queue to disk and remembers 
+the last seen sort key. Then it starts scanning again, and exits when the last seen sort key is reached. 
+
+The benchmark sort "tickets" table. With the 
+AI will easily create an efficient multiway merge sort implementation. However, it will not outperform the default "slow" implementation with 
 the given default cache and data size in the benchmark. The students will need to tune the parameters of the benchmark to observe the performance 
 dynamics of their implementation and to understand when MWMS becomes more efficient than the default "slow" implementation.
+
+Possible questions:
+1. Explain how the cache size affects the performance of MWMS. What is the condition when only 1 pass over the data set is required?
+   When only two passes are required?
+2. What is the condition when TopK sort is more efficient than MWMS?
+
+Perhaps it makes sense to review student's work using AI and ask the agent to prepare code-related questions to the student.
