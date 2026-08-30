@@ -54,7 +54,7 @@ fun initializeFactories(
     }
     Operations.sortFactory = { strg, cache ->
         when (sortImpl) {
-            "real" -> TODO("Create your merge sort instance here")
+            "real" -> MultiwayMergeSortImpl(strg, cache)
             else -> TopKSortImpl(strg, cache)
         }
     }
