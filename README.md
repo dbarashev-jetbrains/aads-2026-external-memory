@@ -50,7 +50,9 @@ and evicting or flushing a dirty page costs a random write.
 
 ## GitHub action
 
-There is a GitHub action that runs the unit tests and the benchmark. It will check your pull requests and will turn the green light if your implementation is likely to be correct.
+There is a GitHub action that runs the unit tests and the benchmark. It only runs the tests, so if it passes, it may mean 
+that your implementation is likely to be correct, however, it may also mean that you forgot to plug your implementation into the system.
+In any case, it does say nothing about the performance of your implementation.
 
 ## Performance dynamics research
 
