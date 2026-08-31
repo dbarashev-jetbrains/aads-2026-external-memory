@@ -9,9 +9,6 @@ class SlowSortImpl(private val storageAccessManager: StorageAccessManager, priva
     override fun <T : Comparable<T>> sort(tableName: String, comparableValue: Function<ByteArray, T>): String {
         val outTable = "output${Random.nextLong()}"
         val outOid = storageAccessManager.createTable(outTable)
-        closeables.add(AutoCloseable {
-            storageAccessManager.deleteTable(outTable)
-        })
 
         TableBuilder(storageAccessManager, cache, outOid).use { outputBuilder ->
             var minRecord = storageAccessManager.createFullScan(tableName).records {

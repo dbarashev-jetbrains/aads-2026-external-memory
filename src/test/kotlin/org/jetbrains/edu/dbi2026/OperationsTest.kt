@@ -54,7 +54,7 @@ class OperationsTest  {
                 intField().first.fromBytes(it).first
             }.toList())
         }
-        assertFalse(accessMethodManager.tableExists(sortOutputTableName))
+        assertTrue(accessMethodManager.tableExists(sortOutputTableName))
     }
 
     @Test

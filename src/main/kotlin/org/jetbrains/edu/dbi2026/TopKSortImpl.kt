@@ -38,7 +38,6 @@ class TopKSortImpl(
 
     override fun <T : Comparable<T>> sort(tableName: String, comparableValue: Function<ByteArray, T>): String {
         val (outTable, outTableOid) = createOutputTable()
-        temporaryTables.add(outTable)
         val inputPageIds = inputPageIds(tableName)
         // The largest record which has already been written to the output.
         var highWaterMark: Candidate<T>? = null
